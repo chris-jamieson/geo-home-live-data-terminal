@@ -1,0 +1,21 @@
+{
+  "name": "geo-home-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ansi-escapes": "^4.3.1",
+    "asciichart": "^1.5.25",
+    "axios": "^0.21.1",
+    "dot-prop": "^6.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "minimist": "^1.2.5",
+    "moment": "^2.29.1",
+    "underscore": "^1.12.0"
+  }
+}
