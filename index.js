@@ -9,11 +9,10 @@ const ansiEscapes = require("ansi-escapes");
 
 const GEO_API_BASE_URL = "https://api.geotogether.com";
 
-const SYSTEM_ID = null; // TODO: get this from cli command
 const READINGS = [];
 
 const argOpts = {
-  string: ["username", "password", "system"],
+  string: ["username", "password", "system", "output"],
   alias: {
     username: "u",
     password: "p",
@@ -21,11 +20,13 @@ const argOpts = {
     refresh: "r",
     width: "w",
     height: "h",
+    output: "o",
   },
   default: {
     refresh: 30,
     width: process.stdout.columns || 100,
     height: process.stdout.rows || 10,
+    output: "chart",
   },
 };
 
@@ -44,9 +45,7 @@ function getLiveData(accessToken, systemId) {
   });
 }
 
-function displayLiveData(data, chartHeight, chartWidth) {
-  // console.log("data: ", data);
-
+function displayLiveData(data, outputType, chartHeight, chartWidth) {
   if (data.power && data.power.length > 0) {
     const reading = {
       timestamp: data.utc,
@@ -54,40 +53,41 @@ function displayLiveData(data, chartHeight, chartWidth) {
     };
     READINGS.push(reading);
 
-    // Textual
-    // console.log(`Live usage at ${moment.unix(data.utc).format("HH:mm")}:`);
-    // _.each(data.power, (item) => {
-    //   console.log(`- ${item.type}: ${item.watts}W`);
-    // });
+    if (outputType === "text") {
+      // Textual
+      console.log(`Live usage at ${moment.unix(data.utc).format("HH:mm")}:`);
+      _.each(data.power, (item) => {
+        console.log(`- ${item.type}: ${item.watts}W`);
+      });
+    } else if (outputType === "graph") {
+      // Graphical
+      const padding = "       ";
+      const offset = 3;
+      const adjustment = offset - 6;
+      const plottable = _.map(
+        _.last(READINGS, chartWidth - adjustment),
+        (item) => {
+          return item.import;
+        }
+      );
 
-    // Graphical
-    // console.log("\n\n");
-    const padding = "       ";
-    const offset = 3;
-    const adjustment = offset - 6;
-    const plottable = _.map(
-      _.last(READINGS, chartWidth - adjustment),
-      (item) => {
-        return item.import;
+      while (plottable.length < chartWidth - adjustment) {
+        plottable.unshift(0);
       }
-    );
 
-    while (plottable.length < chartWidth - adjustment) {
-      plottable.unshift(0);
+      process.stdout.write(
+        ansiEscapes.eraseLines(chartHeight + 1) +
+          asciichart.plot(plottable, {
+            height: chartHeight,
+            offset, // axis offset from the left (min 2)
+            padding,
+            // the label format function applies default padding
+            format: function (x, i) {
+              return (padding + x.toFixed(2)).slice(-padding.length);
+            },
+          })
+      );
     }
-
-    process.stdout.write(
-      ansiEscapes.eraseLines(chartHeight + 1) +
-        asciichart.plot(plottable, {
-          height: chartHeight,
-          offset, // axis offset from the left (min 2)
-          padding,
-          // the label format function applies default padding
-          format: function (x, i) {
-            return (padding + x.toFixed(2)).slice(-padding.length);
-          },
-        })
-    );
   } else {
     // console.log("Data unavailable :(");
   }
@@ -177,6 +177,11 @@ function main() {
     argv.refresh = argv.refresh * 1000; // seconds to ms
   }
 
+  if (argv.output !== "chart" && argv.output !== "text") {
+    console.error("Output type must be chart or text");
+    process.exit(1);
+  }
+
   argv.height = parseInt(argv.height, 10);
   argv.width = parseInt(argv.width, 10);
 
@@ -192,7 +197,7 @@ function main() {
         return getLiveData(accessToken, systemId);
       })
       .then((result) => {
-        displayLiveData(result, argv.height, argv.width);
+        displayLiveData(result, argv.output, argv.height, argv.width);
       })
       .catch((err) => {
         console.error("err: ", err.message);
